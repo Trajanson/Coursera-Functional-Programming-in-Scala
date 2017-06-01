@@ -34,10 +34,28 @@ object Anagrams {
    *
    *  Note: you must use `groupBy` to implement this method!
    */
-  def wordOccurrences(w: Word): Occurrences = ???
+  def wordOccurrences(w: Word): Occurrences = {
+      val chars: List[Char] = w.toLowerCase.toList.sorted
+      val mapping = chars.groupBy( x => x )
+
+      def sortByChar(firstItem: (Char, List[Char]), secondItem: (Char, List[Char])) = {
+          firstItem._1 < secondItem._1
+      }
+
+
+      val sortedMappedList = mapping.toList.sortWith(sortByChar)
+
+      for {
+          (letter, letters) <- sortedMappedList
+      } yield (letter, letters.length)
+
+  }
 
   /** Converts a sentence into its character occurrence list. */
-  def sentenceOccurrences(s: Sentence): Occurrences = ???
+  def sentenceOccurrences(s: Sentence): Occurrences = {
+      var sentenceAsWord: Word = s.mkString("")
+      wordOccurrences(sentenceAsWord)
+  }
 
   /** The `dictionaryByOccurrences` is a `Map` from different occurrences to a sequence of all
    *  the words that have that occurrence count.
@@ -54,10 +72,30 @@ object Anagrams {
    *    List(('a', 1), ('e', 1), ('t', 1)) -> Seq("ate", "eat", "tea")
    *
    */
-  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = ???
+  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = {
+      def recursivelyAdd(remainingWords: List[Word], accum: Map[Occurrences, List[Word]]): Map[Occurrences, List[Word]] = remainingWords match {
+          case Nil => accum
+          case currentWord :: xs => {
+              val currentWordOccurrence = wordOccurrences(currentWord)
+              if (accum contains currentWordOccurrence) {
+                  val wordsInOccurence: List[Word] = accum(currentWordOccurrence)
+                  val newWordsInOccurence: List[Word] = wordsInOccurence ++ List(currentWord)
+                  val newAccum: Map[Occurrences, List[Word]] = accum + (currentWordOccurrence -> newWordsInOccurence)
+                  recursivelyAdd(xs, newAccum)
+              } else {
+                  val newAccum: Map[Occurrences, List[Word]] = accum + (currentWordOccurrence -> List(currentWord))
+                  recursivelyAdd(xs, newAccum)
+              }
+          }
+      }
+      recursivelyAdd(dictionary, Map())
+  }
 
   /** Returns all the anagrams of a given word. */
-  def wordAnagrams(word: Word): List[Word] = ???
+  def wordAnagrams(word: Word): List[Word] = {
+      val occurence: Occurrences = wordOccurrences(word)
+      dictionaryByOccurrences getOrElse (occurence, List())
+  }
 
   /** Returns the list of all subsets of the occurrence list.
    *  This includes the occurrence itself, i.e. `List(('k', 1), ('o', 1))`
@@ -81,7 +119,63 @@ object Anagrams {
    *  Note that the order of the occurrence list subsets does not matter -- the subsets
    *  in the example above could have been displayed in some other order.
    */
-  def combinations(occurrences: Occurrences): List[Occurrences] = ???
+  def combinations(occurrences: Occurrences): List[Occurrences] = {
+      def buildCombinations(remainingData: Occurrences): List[Occurrences] = {
+          remainingData match {
+              case Nil => List()
+              case (char, count) :: remainingAfterNextData => {
+                  val combinationsNext = buildCombinations(remainingAfterNextData)
+
+  //                 println("")
+  //                 println("char", char)
+  //                 println("char", count)
+  //                 println("combinationsNext", combinationsNext)
+  //                 println("")
+
+                  if (combinationsNext.length == 0) {
+                      val fullCombinations = for {
+                          charCount <- 0 to count
+                      } yield {
+                          if (charCount == 0) List()
+                          else (char, charCount) :: Nil
+                      }
+                      fullCombinations.toList
+
+                  } else {
+                      val fullCombinations = for {
+                          nextCombination <- combinationsNext
+                          charCount <- 0 to count
+                      } yield {
+                          if (charCount == 0) nextCombination
+                          else (char, charCount) :: nextCombination
+                      }
+
+                      fullCombinations.toSet.toList
+                  }
+
+
+              }
+          }
+      }
+
+      def sanitizeSolutions(occurences: List[Occurrences]): List[Occurrences] = {
+          val sanitizedSolutions =
+              for {
+                  occurence <- occurences
+                  if occurence.length > 0
+              } yield {
+                  occurence
+              }
+
+          sanitizedSolutions.toList
+      }
+
+
+      val builtCombinations = buildCombinations(occurrences)
+      List() :: sanitizeSolutions(builtCombinations)
+
+  }
+
 
   /** Subtracts occurrence list `y` from occurrence list `x`.
    *
@@ -93,7 +187,27 @@ object Anagrams {
    *  Note: the resulting value is an occurrence - meaning it is sorted
    *  and has no zero-entries.
    */
-  def subtract(x: Occurrences, y: Occurrences): Occurrences = ???
+  def subtract(x: Occurrences, y: Occurrences): Occurrences = {
+      def deleteChar(occurrences: Occurrences, charToDelete: Char, countToDelete: Int): Occurrences = {
+          val nextOccurrences =
+              for {
+                  (occurrenceChar, occurrenceInt) <- occurrences
+              } yield {
+                  if (occurrenceChar == charToDelete) (occurrenceChar, occurrenceInt - countToDelete)
+                  else (occurrenceChar, occurrenceInt)
+              }
+          nextOccurrences.toList.filter( occurrence => occurrence._2 > 0 )
+      }
+
+      y match {
+          case Nil => x
+          case (char, count) :: remainingDeletions => {
+              val remainingList = deleteChar(x, char, count)
+              subtract(remainingList, remainingDeletions)
+          }
+      }
+  }
+
 
   /** Returns a list of all anagram sentences of the given sentence.
    *
@@ -135,5 +249,9 @@ object Anagrams {
    *
    *  Note: There is only one anagram of an empty sentence.
    */
-  def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+  def sentenceAnagrams(sentence: Sentence): List[Sentence] = {
+      val occurrences = sentenceOccurrences(sentence)
+
+      List(List())
+  }
 }
