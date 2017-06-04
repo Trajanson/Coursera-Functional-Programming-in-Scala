@@ -9,13 +9,30 @@ final case class Times(a: Expr, b: Expr) extends Expr
 final case class Divide(a: Expr, b: Expr) extends Expr
 
 object Calculator {
-  def computeValues(
-      namedExpressions: Map[String, Signal[Expr]]): Map[String, Signal[Double]] = {
-    ???
+    def computeValues(
+        namedExpressions: Map[String, Signal[Expr]]): Map[String, Signal[Double]] = {
+            for {
+                (variable, expression) <- namedExpressions
+            } yield {
+                val value = Signal(eval(expression(), namedExpressions))
+                (variable, value)
+            }
+    }
+
+  def evaluatateReference(variableName: String, references: Map[String, Signal[Expr]]): Double = {
+        val reference = getReferenceExpr(variableName, references)
+        eval(reference, references - variableName)
   }
 
   def eval(expr: Expr, references: Map[String, Signal[Expr]]): Double = {
-    ???
+      expr match {
+          case Literal(v)   => v
+          case Ref(name)    => evaluatateReference(name, references)
+          case Plus(a, b)   => eval(a, references) + eval(b, references)
+          case Minus(a, b)  => eval(a, references) - eval(b, references)
+          case Times(a, b)  => eval(a, references) * eval(b, references)
+          case Divide(a, b) => eval(a, references) / eval(b, references)
+      }
   }
 
   /** Get the Expr for a referenced variables.
