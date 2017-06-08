@@ -38,25 +38,69 @@ object ParallelParenthesesBalancingRunner {
 
 object ParallelParenthesesBalancing {
 
-  /** Returns `true` iff the parentheses in the input `chars` are balanced.
+  /** Returns `true` if the parentheses in the input `chars` are balanced.
    */
   def balance(chars: Array[Char]): Boolean = {
-    ???
+    var count = 0
+
+    for {
+        char <- chars
+    } yield {
+        if (count < 0) return false
+        else if (char == '(') count += 1
+        else if (char == ')') count -= 1
+    }
+
+    count == 0
   }
 
   /** Returns `true` iff the parentheses in the input `chars` are balanced.
    */
   def parBalance(chars: Array[Char], threshold: Int): Boolean = {
 
-    def traverse(idx: Int, until: Int, arg1: Int, arg2: Int) /*: ???*/ = {
-      ???
+    def traverse(idx: Int, until: Int, countLeft: Int, countRight: Int): (Int, Int) = {
+      if (idx >= until) (countLeft, countRight)
+      else {
+          chars(idx) match {
+              case '(' => traverse(idx + 1, until, countLeft + 1, countRight)
+              case ')' => {
+                  if (countLeft > 0) traverse(idx + 1, until, countLeft - 1, countRight)
+                  else traverse(idx + 1, until, countLeft, countRight + 1)
+              }
+              case char => traverse(idx + 1, until, countLeft, countRight)
+          }
+      }
     }
 
-    def reduce(from: Int, until: Int) /*: ???*/ = {
-      ???
+    def reduce(from: Int, until: Int): (Int, Int) = {
+      val length = until - from
+
+      if (length > threshold) {
+          val rightStartIndex = from + (length / 2)
+          val (leftTree, rightTree) = parallel(
+              reduce(from, rightStartIndex),
+              reduce(rightStartIndex, until)
+          )
+
+          val (leftCountLeft, leftCountRight)   = leftTree
+          val (rightCountLeft, rightCountRight) = rightTree
+
+          if (leftCountLeft < 0 && rightCountLeft > 0) {
+              (leftCountLeft, leftCountRight + rightCountLeft + rightCountRight)
+          }
+          else if (leftCountRight > 0 && rightCountLeft < 0) {
+              (leftCountLeft + leftCountRight + rightCountLeft, rightCountRight)
+          } else {
+              (leftCountLeft + rightCountLeft, leftCountRight + rightCountRight)
+          }
+
+      } else {
+          traverse(from, until, 0, 0)
+      }
+
     }
 
-    reduce(0, chars.length) == ???
+    reduce(0, chars.length) == (0, 0)
   }
 
   // For those who want more:
